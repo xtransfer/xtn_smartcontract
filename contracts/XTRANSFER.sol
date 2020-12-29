@@ -11,6 +11,38 @@ abstract contract Context {
     }
 }
 
+abstract contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    constructor () internal {
+        address msgSender = _msgSender();
+        _owner = msgSender;
+        emit OwnershipTransferred(address(0), msgSender);
+    }
+
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    modifier onlyOwner() {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
 interface IERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
@@ -190,21 +222,40 @@ contract ERC20 is Context, IERC20 {
 }
 
 
-contract XTRANSFER is ERC20 {
+contract XTRANSFER is ERC20, Ownable{
   using SafeMath for uint256;
 
   constructor() public ERC20("XTRANSFER", "XTN") {
     _mint(msg.sender, 200000000 * (10 ** uint256(decimals())));
   }
 
+    event AddToWhitelist(address account);
+    event RemoveFromWhitelist(address account);
+
+    mapping (address => bool) public Whitelist;
+
+    function addToWhitelist(address account) public onlyOwner {
+      Whitelist[account] = true;
+      emit AddToWhitelist(account);
+    }
+
+    function removeFromWhitelist(address account) public onlyOwner {
+      Whitelist[account] = false;
+      emit RemoveFromWhitelist(account);
+    }
+
     address addressTreasury = 0x03026D47449F0D1425718aBf121Cf4773791D04d;
 
 
     function transfer(address recipient, uint256 amount) public override returns (bool) {
+      if (Whitelist[_msgSender()] == false) {
         uint256 transferFee = amount.mul(9).div(1000);
         uint transferAmount = amount.sub(transferFee);
         _transfer(_msgSender(), recipient, transferAmount);
         _transfer(_msgSender(), addressTreasury, transferFee);
+      } else {
+        _transfer(_msgSender(), recipient, amount);
+      }
       return true;
     }
 
