@@ -50,6 +50,7 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
@@ -140,7 +141,6 @@ contract ERC20 is Context, IERC20 {
         return _totalSupply;
     }
 
-
     function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
@@ -221,42 +221,45 @@ contract ERC20 is Context, IERC20 {
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
 }
 
-
 contract XTRANSFER is ERC20, Ownable{
   using SafeMath for uint256;
 
   constructor() public ERC20("XTRANSFER", "XTN") {
-    _mint(msg.sender, 200000000 * (10 ** uint256(decimals())));
+    _mint(_msgSender(), 200000000 * (10 ** uint256(decimals())));
   }
 
-    event AddToWhitelist(address account);
-    event RemoveFromWhitelist(address account);
+  event AddToWhitelist(address indexed account);
+   event RemoveFromWhitelist(address indexed account);
+   event AddressTreasury(address indexed account);
 
-    mapping (address => bool) public Whitelist;
+   address public recipientFee;
 
-    function addToWhitelist(address account) public onlyOwner {
-      Whitelist[account] = true;
-      emit AddToWhitelist(account);
-    }
+   mapping (address => bool) public Whitelist;
 
-    function removeFromWhitelist(address account) public onlyOwner {
-      Whitelist[account] = false;
-      emit RemoveFromWhitelist(account);
-    }
+   function addToWhitelist(address account) public onlyOwner {
+     Whitelist[account] = true;
+     emit AddToWhitelist(account);
+   }
 
-    address addressTreasury = 0x03026D47449F0D1425718aBf121Cf4773791D04d;
+   function removeFromWhitelist(address account) public onlyOwner {
+     Whitelist[account] = false;
+     emit RemoveFromWhitelist(account);
+   }
 
+   function addressTreasury(address account) public onlyOwner {
+     recipientFee = account;
+     emit AddressTreasury(account);
+   }
 
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
-      if (Whitelist[_msgSender()] == false) {
-        uint256 transferFee = amount.mul(9).div(1000);
-        uint transferAmount = amount.sub(transferFee);
-        _transfer(_msgSender(), recipient, transferAmount);
-        _transfer(_msgSender(), addressTreasury, transferFee);
-      } else {
-        _transfer(_msgSender(), recipient, amount);
-      }
-      return true;
-    }
-
-  }
+   function transfer(address recipient, uint256 amount) public override returns (bool) {
+     if (Whitelist[_msgSender()] == false) {
+       uint256 transferFee = amount.mul(9).div(1000);
+       uint transferAmount = amount.sub(transferFee);
+       _transfer(_msgSender(), recipient, transferAmount);
+       _transfer(_msgSender(), recipientFee, transferFee);
+     } else {
+       _transfer(_msgSender(), recipient, amount);
+     }
+     return true;
+   }
+ }
